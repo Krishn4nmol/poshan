@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+/* POSHAN - Smart Agriculture Design System */
+
+@layer base {
+  :root {
+    --background: 45 30% 97%;
+    --foreground: 150 30% 15%;
+
+    --card: 45 40% 98%;
+    --card-foreground: 150 30% 15%;
+
+    --popover: 45 40% 98%;
+    --popover-foreground: 150 30% 15%;
+
+    --primary: 142 45% 32%;
+    --primary-foreground: 45 40% 98%;
+
+    --secondary: 38 85% 55%;
+    --secondary-foreground: 150 30% 15%;
+
+    --muted: 45 20% 92%;
+    --muted-foreground: 150 15% 45%;
+
+    --accent: 200 80% 55%;
+    --accent-foreground: 45 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 40% 98%;
+
+    --border: 45 20% 85%;
+    --input: 45 20% 85%;
+    --ring: 142 45% 32%;
+
+    --radius: 0.75rem;
+
+    /* Custom POSHAN colors */
+    --earth: 30 35% 35%;
+    --earth-light: 35 25% 75%;
+    --leaf: 120 40% 45%;
+    --leaf-dark: 140 50% 25%;
+    --harvest: 38 90% 50%;
+    --sky: 200 80% 55%;
+    --soil: 25 30% 25%;
+    --water: 195 75% 45%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(142 45% 32%) 0%, hsl(120 40% 45%) 100%);
+    --gradient-harvest: linear-gradient(135deg, hsl(38 90% 50%) 0%, hsl(30 85% 55%) 100%);
+    --gradient-sky: linear-gradient(180deg, hsl(200 80% 55%) 0%, hsl(200 70% 75%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(45 40% 98%) 0%, hsl(45 30% 95%) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(150 30% 15% / 0.1);
+    --shadow-card: 0 8px 30px -8px hsl(150 30% 15% / 0.12);
+    --shadow-elevated: 0 20px 50px -12px hsl(150 30% 15% / 0.18);
+
+    --sidebar-background: 45 30% 97%;
+    --sidebar-foreground: 150 30% 15%;
+    --sidebar-primary: 142 45% 32%;
+    --sidebar-primary-foreground: 45 40% 98%;
+    --sidebar-accent: 45 20% 92%;
+    --sidebar-accent-foreground: 150 30% 15%;
+    --sidebar-border: 45 20% 85%;
+    --sidebar-ring: 142 45% 32%;
+  }
+
+  .dark {
+    --background: 150 20% 8%;
+    --foreground: 45 30% 95%;
+
+    --card: 150 18% 12%;
+    --card-foreground: 45 30% 95%;
+
+    --popover: 150 18% 12%;
+    --popover-foreground: 45 30% 95%;
+
+    --primary: 142 50% 45%;
+    --primary-foreground: 150 20% 8%;
+
+    --secondary: 38 80% 50%;
+    --secondary-foreground: 150 20% 8%;
+
+    --muted: 150 15% 18%;
+    --muted-foreground: 45 15% 65%;
+
+    --accent: 200 75% 50%;
+    --accent-foreground: 150 20% 8%;
+
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 45 30% 95%;
+
+    --border: 150 15% 20%;
+    --input: 150 15% 20%;
+    --ring: 142 50% 45%;
+
+    --earth: 30 25% 55%;
+    --earth-light: 35 20% 40%;
+    --leaf: 120 35% 55%;
+    --leaf-dark: 140 45% 35%;
+    --harvest: 38 85% 55%;
+    --sky: 200 70% 50%;
+    --soil: 25 20% 45%;
+    --water: 195 65% 50%;
+
+    --sidebar-background: 150 20% 8%;
+    --sidebar-foreground: 45 30% 95%;
+    --sidebar-primary: 142 50% 45%;
+    --sidebar-primary-foreground: 150 20% 8%;
+    --sidebar-accent: 150 15% 18%;
+    --sidebar-accent-foreground: 45 30% 95%;
+    --sidebar-border: 150 15% 20%;
+    --sidebar-ring: 142 50% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-harvest {
+    background: var(--gradient-harvest);
+  }
+
+  .gradient-sky {
+    background: var(--gradient-sky);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
