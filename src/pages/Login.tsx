@@ -149,7 +149,7 @@ const Login = () => {
           }
 
           if (signInData.session) {
-            navigate("/dashboard");
+    navigate("/dashboard");
           }
         }
       }
@@ -613,7 +613,7 @@ const Login = () => {
               )}
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -698,8 +698,8 @@ const Login = () => {
                 </>
               ) : (
                 <>
-                  {isLogin ? "Sign In" : "Create Account"}
-                  <ArrowRight className="h-5 w-5" />
+              {isLogin ? "Sign In" : "Create Account"}
+              <ArrowRight className="h-5 w-5" />
                 </>
               )}
             </Button>
@@ -708,7 +708,7 @@ const Login = () => {
 
           {!showForgotPassword && (
             <>
-            <div className="relative">
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border" />
             </div>

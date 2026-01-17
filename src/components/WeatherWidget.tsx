@@ -30,14 +30,18 @@ interface WeatherData {
   }[];
 }
 
-// OpenWeatherMap API key - you should add this to your .env file
+// WeatherAPI.com API key - you should add this to your .env file
 const WEATHER_API_KEY = import.meta.env.VITE_WEATHER_API_KEY || "demo";
-const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5";
+const WEATHER_API_URL = "https://api.weatherapi.com/v1";
 
 const getConditionFromCode = (code: number): "sunny" | "cloudy" | "rainy" | "partly-cloudy" => {
-  if (code >= 200 && code < 600) return "rainy";
-  if (code >= 600 && code < 700) return "cloudy";
-  if (code === 800) return "sunny";
+  // WeatherAPI.com condition codes
+  if (code >= 1000 && code <= 1030) return "sunny"; // Clear to partly cloudy
+  if (code >= 1063 && code <= 1201) return "rainy"; // Rain
+  if (code >= 1204 && code <= 1264) return "rainy"; // Snow/rain mix
+  if (code >= 1273 && code <= 1282) return "rainy"; // Thunderstorm
+  if (code >= 1066 && code <= 1237) return "cloudy"; // Snow
+  if (code >= 1006 && code <= 1009) return "cloudy"; // Cloudy
   return "partly-cloudy";
 };
 
@@ -107,86 +111,91 @@ export const WeatherWidget = () => {
         return;
       }
 
-      // Fetch current weather by coordinates
-      const currentResponse = await fetch(
-        `${WEATHER_API_URL}/weather?lat=${latitude}&lon=${longitude}&appid=${WEATHER_API_KEY}&units=metric`
+      // WeatherAPI.com provides current weather + forecast in one call
+      const response = await fetch(
+        `${WEATHER_API_URL}/forecast.json?key=${WEATHER_API_KEY}&q=${latitude},${longitude}&days=5&aqi=yes&alerts=yes`
       );
       
-      if (!currentResponse.ok) {
+      if (!response.ok) {
         throw new Error("Failed to fetch weather data");
       }
       
-      const currentData = await currentResponse.json();
-      const locationName = currentData.name || "Current Location";
+      const data = await response.json();
+      const locationName = data.location?.name || "Current Location";
+      const current = data.current;
+      const forecastDays = data.forecast?.forecastday || [];
 
-      // Fetch 5-day forecast
-      const forecastResponse = await fetch(
-        `${WEATHER_API_URL}/forecast?lat=${latitude}&lon=${longitude}&appid=${WEATHER_API_KEY}&units=metric`
-      );
-      
-      if (!forecastResponse.ok) {
-        throw new Error("Failed to fetch forecast data");
-      }
-      
-      const forecastData = await forecastResponse.json();
-
-      // Process 5-day forecast - get daily min/max temps
-      const dailyForecasts: { [key: string]: { temps: number[], items: any[], date: Date } } = {};
-      
-      forecastData.list.forEach((item: any) => {
-        const date = new Date(item.dt * 1000);
-        const dateKey = date.toDateString();
-        if (!dailyForecasts[dateKey]) {
-          dailyForecasts[dateKey] = { temps: [], items: [], date };
-        }
-        dailyForecasts[dateKey].temps.push(item.main.temp);
-        dailyForecasts[dateKey].items.push(item);
-      });
-
+      // Process 5-day forecast
       const today = new Date();
       const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       
-      const forecast = Object.entries(dailyForecasts)
-        .slice(0, 5)
-        .map(([dateKey, data], index) => {
-          const date = data.date;
-          const isToday = date.toDateString() === today.toDateString();
-          const minTemp = Math.round(Math.min(...data.temps));
-          const maxTemp = Math.round(Math.max(...data.temps));
-          const avgTemp = Math.round(data.temps.reduce((a, b) => a + b, 0) / data.temps.length);
-          const mainItem = data.items[Math.floor(data.items.length / 2)]; // Get middle item of the day
-          
-          return {
-            day: isToday ? "Today" : index === 1 ? "Tomorrow" : days[date.getDay()],
-            date: isToday ? "Today" : index === 1 ? "Tomorrow" : "",
-            temp: avgTemp,
-            minTemp,
-            maxTemp,
-            condition: getConditionFromCode(mainItem.weather[0].id),
-            description: mainItem.weather[0].description,
-          };
-        });
+      const forecast = forecastDays.slice(0, 5).map((day: any, index: number) => {
+        const date = new Date(day.date);
+        const isToday = date.toDateString() === today.toDateString();
+        const dayCondition = day.day?.condition;
+        
+        return {
+          day: isToday ? "Today" : index === 1 ? "Tomorrow" : days[date.getDay()],
+          date: isToday ? "Today" : index === 1 ? "Tomorrow" : "",
+          temp: Math.round(day.day?.avgtemp_c || day.day?.maxtemp_c || 0),
+          minTemp: Math.round(day.day?.mintemp_c || 0),
+          maxTemp: Math.round(day.day?.maxtemp_c || 0),
+          condition: getConditionFromCode(dayCondition?.code || 1000),
+          description: dayCondition?.text || "Clear",
+        };
+      });
 
       // Get wind direction in degrees
-      const windDirection = currentData.wind.deg || 0;
+      const windDirection = current.wind_degree || 0;
       
       // Get timezone offset (in seconds) from API response
-      const timezoneOffset = currentData.timezone || 0;
+      const timezoneOffset = data.location?.tz_id ? 0 : 0; // WeatherAPI.com provides local time directly
+      
+      // Parse sunrise/sunset times from astronomy data
+      const astronomy = forecastDays[0]?.astro || {};
+      const sunriseTime = astronomy.sunrise || "06:00 AM";
+      const sunsetTime = astronomy.sunset || "06:00 PM";
+      
+      // Convert sunrise/sunset to Unix timestamps
+      const now = new Date();
+      const sunriseMatch = sunriseTime.match(/(\d+):(\d+)\s*(AM|PM)/);
+      const sunsetMatch = sunsetTime.match(/(\d+):(\d+)\s*(AM|PM)/);
+      
+      let sunriseDate = new Date(now);
+      let sunsetDate = new Date(now);
+      
+      if (sunriseMatch) {
+        let hour = parseInt(sunriseMatch[1]);
+        const min = parseInt(sunriseMatch[2]);
+        const period = sunriseMatch[3];
+        if (period === "PM" && hour !== 12) hour += 12;
+        if (period === "AM" && hour === 12) hour = 0;
+        sunriseDate.setHours(hour, min, 0, 0);
+      }
+      
+      if (sunsetMatch) {
+        let hour = parseInt(sunsetMatch[1]);
+        const min = parseInt(sunsetMatch[2]);
+        const period = sunsetMatch[3];
+        if (period === "PM" && hour !== 12) hour += 12;
+        if (period === "AM" && hour === 12) hour = 0;
+        sunsetDate.setHours(hour, min, 0, 0);
+      }
       
       setWeather({
-        temperature: Math.round(currentData.main.temp),
-        feelsLike: Math.round(currentData.main.feels_like),
-        humidity: currentData.main.humidity,
-        windSpeed: Math.round(currentData.wind.speed * 3.6), // Convert m/s to km/h
+        temperature: Math.round(current.temp_c || 0),
+        feelsLike: Math.round(current.feelslike_c || current.temp_c || 0),
+        humidity: current.humidity || 0,
+        windSpeed: Math.round((current.wind_kph || 0)), // Already in km/h
         windDirection: windDirection,
-        pressure: currentData.main.pressure,
-        visibility: Math.round((currentData.visibility || 10000) / 1000), // Convert to km
-        uvIndex: Math.round((currentData.uvi || 0)),
-        condition: getConditionFromCode(currentData.weather[0].id),
-        description: currentData.weather[0].description,
+        pressure: Math.round(current.pressure_mb || 0), // Convert mb to hPa (they're the same)
+        visibility: Math.round((current.vis_km || 10)), // Already in km
+        uvIndex: Math.round(current.uv || 0),
+        condition: getConditionFromCode(current.condition?.code || 1000),
+        description: current.condition?.text || "Clear",
         location: locationName,
-        sunrise: currentData.sys.sunrise,
-        sunset: currentData.sys.sunset,
+        sunrise: Math.floor(sunriseDate.getTime() / 1000),
+        sunset: Math.floor(sunsetDate.getTime() / 1000),
         timezone: timezoneOffset,
         forecast,
       });
@@ -250,12 +259,8 @@ export const WeatherWidget = () => {
   };
 
   const formatTime = (timestamp: number, timezoneOffset: number = 0): string => {
-    // OpenWeatherMap returns sunrise/sunset in UTC Unix timestamp (seconds)
-    // timezoneOffset is the shift in seconds from UTC for the location
-    // Convert UTC timestamp to location's local time
-    const utcTime = timestamp * 1000; // Convert to milliseconds
-    const localTime = utcTime + (timezoneOffset * 1000); // Add timezone offset
-    const date = new Date(localTime);
+    // WeatherAPI.com provides local time, so we can use the timestamp directly
+    const date = new Date(timestamp * 1000);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   };
 
@@ -424,7 +429,7 @@ export const WeatherWidget = () => {
                 <div className="text-right">
                   <p className="text-lg font-bold">{day.temp}°</p>
                 </div>
-              </div>
+            </div>
             </Card>
           ))}
         </div>

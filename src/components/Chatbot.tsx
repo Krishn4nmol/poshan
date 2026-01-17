@@ -12,8 +12,8 @@ interface Message {
   timestamp: Date;
 }
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
 
 // Comprehensive knowledge base for farming and agriculture
 const knowledgeBase: { [key: string]: string[] } = {
@@ -149,53 +149,49 @@ const retryWithBackoff = async (
 const getAIResponse = async (userMessage: string, conversationHistory: Message[]): Promise<string> => {
   // First, try knowledge base for farming-related questions
   const knowledgeResponse = getKnowledgeBaseResponse(userMessage);
+
+  // Always try knowledge base first for domain-specific answers
   if (knowledgeResponse) {
-    // Use knowledge base response, but still try OpenAI for enhancement
-    // This ensures we always have a good answer even if API fails
+    // If we have a knowledge base answer, use it (or enhance with Gemini if available)
   }
 
-  if (!OPENAI_API_KEY) {
-    // If no API key, use knowledge base
-    return knowledgeResponse || "I'm a farming assistant. Ask me about crops, soil, water, pests, weather, fertilizers, or harvesting! Please configure VITE_OPENAI_API_KEY for more advanced responses.";
+  if (!GEMINI_API_KEY) {
+    // If no API key, use knowledge base exclusively
+    return knowledgeResponse || "I specialize in farming and agriculture. Ask me about specific topics like crop rotation, soil pH testing, irrigation systems, pest management, fertilizer application, or harvest timing for detailed guidance.";
   }
 
   try {
-    // Build conversation messages for OpenAI format
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      {
-        role: "system",
-        content: "You are an expert farming and agriculture assistant with deep knowledge of crop cultivation, soil management, irrigation, pest control, and sustainable farming practices. Provide detailed, practical, and helpful advice. Be concise but informative.",
-      },
-    ];
-
-    // Add conversation history (last 6 messages to reduce token usage)
-    const recentMessages = conversationHistory.slice(-6);
+    // Build conversation context for Gemini - highly specialized for farming
+    let conversationContext = "You are an expert agricultural consultant specializing in Indian farming practices, crop management, soil health, irrigation techniques, pest and disease control, organic farming, and sustainable agriculture. You provide practical, actionable advice based on scientific farming principles. Focus on: crop-specific guidance (rice, wheat, vegetables, fruits), soil testing and amendments, water management, integrated pest management (IPM), fertilizer recommendations, seasonal planting schedules, and post-harvest handling. Always be specific, practical, and relevant to farming operations.\n\n";
+    
+    // Add recent conversation history (last 4 messages to keep context manageable)
+    const recentMessages = conversationHistory.slice(-4);
     recentMessages.forEach((msg) => {
-      messages.push({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text,
-      });
+      conversationContext += `${msg.sender === "user" ? "User" : "Assistant"}: ${msg.text}\n`;
     });
 
     // Add current user message
-    messages.push({
-      role: "user",
-      content: userMessage,
-    });
+    conversationContext += `User: ${userMessage}\nAssistant:`;
 
     // Use retry logic for rate limits
     const response = await retryWithBackoff(() =>
-      fetch(OPENAI_API_URL, {
+      fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 300, // Reduced to save tokens and avoid rate limits
+          contents: [{
+            parts: [{
+              text: conversationContext
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 500,
+          },
         }),
       })
     );
@@ -203,9 +199,9 @@ const getAIResponse = async (userMessage: string, conversationHistory: Message[]
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         // Fallback to knowledge base
-        return knowledgeResponse || "Invalid API key. Please check your VITE_OPENAI_API_KEY in the .env file.";
+        return knowledgeResponse || "I specialize in farming and agriculture. Ask me about specific topics like crop rotation, soil pH testing, irrigation systems, pest management, fertilizer application, or harvest timing for detailed guidance.";
       }
       
       if (response.status === 429) {
@@ -218,14 +214,14 @@ const getAIResponse = async (userMessage: string, conversationHistory: Message[]
 
     const data = await response.json();
     
-    // Extract the assistant's message
-    const aiResponse = data.choices?.[0]?.message?.content?.trim() || 
+    // Extract the assistant's message from Gemini response
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
                       knowledgeResponse ||
                       "I'm having trouble processing that. Could you rephrase your question?";
 
     return aiResponse;
   } catch (error: any) {
-    console.error("OpenAI API Error:", error);
+    console.error("Gemini API Error:", error);
     
     // Always fallback to knowledge base
     if (knowledgeResponse) {
@@ -234,7 +230,7 @@ const getAIResponse = async (userMessage: string, conversationHistory: Message[]
     
     // Fallback response
     if (error.message?.includes("API key")) {
-      return "Please check your OpenAI API key configuration. In the meantime, I can help with farming questions about crops, soil, water, pests, weather, fertilizers, and harvesting!";
+      return knowledgeResponse || "I'm here to help with farming and agriculture! Ask me about crop cultivation, soil management, irrigation techniques, pest control, fertilizer application, or harvesting methods for expert guidance.";
     }
     
     if (error.message?.includes("rate limit") || error.message?.includes("429")) {
@@ -250,9 +246,7 @@ export const Chatbot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: OPENAI_API_KEY 
-        ? "Hello! I'm your AI assistant powered by OpenAI. Ask me anything!"
-        : "Hello! I'm your assistant. Please configure VITE_OPENAI_API_KEY in your .env file to enable AI features.",
+      text: "Hello! I'm your farming and agriculture assistant. I can help you with crop cultivation, soil management, irrigation, pest control, fertilizers, harvesting techniques, and sustainable farming practices. What would you like to know?",
       sender: "bot",
       timestamp: new Date(),
     },

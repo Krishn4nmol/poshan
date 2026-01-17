@@ -13,12 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard" },
-  { label: "Crops", path: "/crops" },
-  { label: "Weather", path: "/weather" },
-  { label: "Nutrition", path: "/nutrition" },
 ];
 
 export const Header = () => {
@@ -106,13 +104,14 @@ export const Header = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2">
                   <User className="h-4 w-4" />
-                  Profile
-                </Button>
+            Profile
+          </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
@@ -166,6 +165,10 @@ export const Header = () => {
               </Link>
             ))}
             <hr className="my-2 border-border" />
+            <div className="px-4 py-2 flex items-center justify-between">
+              <span className="text-sm font-medium">Theme</span>
+              <ThemeToggle />
+            </div>
             {user && (
               <div className="px-4 py-2">
                 <p className="text-sm font-medium">{user.name}</p>
