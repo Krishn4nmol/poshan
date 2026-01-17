@@ -27,24 +27,60 @@ const Login = () => {
   // Check for existing session (e.g., after OAuth redirect)
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/dashboard");
+      try {
+        // Check for URL hash fragments (OAuth callback)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const error = hashParams.get('error');
+        
+        if (error) {
+          toast({
+            title: "Authentication Error",
+            description: error === 'access_denied' 
+              ? "Authentication was cancelled. Please try again." 
+              : `Authentication failed: ${error}`,
+            variant: "destructive",
+          });
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+
+        // Get current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          return;
+        }
+
+        if (session) {
+          // Clean up URL hash if present
+          if (accessToken) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
       }
     };
+    
     checkSession();
 
     // Listen for auth state changes (OAuth callbacks)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         navigate("/dashboard");
+      } else if (event === 'SIGNED_OUT') {
+        navigate("/");
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,13 +199,26 @@ const Login = () => {
     }
   };
 
+  const getRedirectUrl = () => {
+    // Use window.location.origin to get the current domain (works for both localhost and Vercel)
+    const origin = window.location.origin;
+    // Redirect to root, then the app will handle routing to dashboard
+    return `${origin}/`;
+  };
+
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
+      const redirectUrl = getRedirectUrl();
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -181,6 +230,8 @@ const Login = () => {
         });
         setIsLoading(false);
       }
+      // Note: If successful, user will be redirected to Google, then back to the app
+      // The useEffect hook will handle the session check and navigation
     } catch (error) {
       toast({
         title: "Error",
@@ -194,10 +245,12 @@ const Login = () => {
   const handleAppleLogin = async () => {
     setIsLoading(true);
     try {
+      const redirectUrl = getRedirectUrl();
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "apple",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: redirectUrl,
         },
       });
 
@@ -209,6 +262,8 @@ const Login = () => {
         });
         setIsLoading(false);
       }
+      // Note: If successful, user will be redirected to Apple, then back to the app
+      // The useEffect hook will handle the session check and navigation
     } catch (error) {
       toast({
         title: "Error",
